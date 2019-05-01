@@ -8,29 +8,15 @@ from sklearn.impute import SimpleImputer
 from sklearn.metrics import r2_score, mean_absolute_error
 from sklearn_pandas import DataFrameMapper, CategoricalImputer
 from matplotlib import pyplot as plt
-import altair as alt
-
-
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.multioutput import MultiOutputRegressor
 
 skaters = pd.read_csv('data/skaters.csv')
 skaters['season_start'] = skaters.season.apply(lambda x: int(x[:4]))
 skaters = skaters.query('season_start >= 2007')
-skaters = skaters.query('name != "Scott Wilson"')
-skaters['games'] = np.where(skaters['season'] == '2012-13', 48, 82)
 skaters['position'] = skaters['position'].apply(lambda x: 'Multiple' if '/' in x else x)
-
-skaters = skaters[[
-    'id', 'name', 'season', 'games',
-    'position', 'age', 'games_played', 'time_on_ice_total',
-    'goals', 'assists', 'plus_minus', 'shots_on_goal', 'blocks', 'hits'
-]]
 df = skaters.copy()
-# df = df[df.name.isin(['Mitch Marner', 'Auston Matthews'])]
+
 
 Y_COLUMNS = ['goals', 'assists', 'plus_minus', 'shots_on_goal', 'blocks', 'hits']
 # X_COLUMNS = ['name', 'position', 'age'] + Y_COLUMNS
