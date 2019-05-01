@@ -44,31 +44,30 @@ df = df.drop(['extra_time', 'winner'], axis=1)
 df = df.query('season == "2018-19"')
 df['date'] = df['date'].apply(pd.to_datetime)
 
-def calculate_average_goals_before_game(df):
-    # home and visitor separation to be rejoined with concat
-    home = df.copy()
-    home = home.rename(columns={'home': 'team', 'goals_home': 'goals_for', 'goals_visitor': 'goals_against'})
-    home = home.drop(['visitor'], axis=1)
-    visitor = df.copy()
-    visitor = visitor.rename(columns={'visitor': 'team', 'goals_home': 'goals_against', 'goals_visitor': 'goals_for'})
-    visitor = visitor.drop(['home'], axis=1)
-    # rejoin the data
-    df = pd.concat([home, visitor], sort=False)
-    df = df.sort_values(['date', 'team'])
-    df['games_played'] = df.groupby('team').cumcount() + 1
-    df['goals_for_total'] = df.groupby('team')['goals_for'].cumsum()
-    df['goals_against_total'] = df.groupby('team')['goals_against'].cumsum()
-    df['goals_for_average'] = df['goals_for_total'] / df['games_played']
-    df['goals_against_average'] = df['goals_against_total'] / df['games_played']
-    # just keep what we need
-    df = df[['date', 'team', 'games_played', 'goals_for_average', 'goals_against_average']]
-    df[['goals_for_average', 'goals_against_average']] = df.groupby('team')[['goals_for_average', 'goals_against_average']].shift(1)
-    # scrub calculations for less than 10 games played
-    df = df.query('games_played >= 10')
-    df = df.drop('games_played', axis=1)
-    return df
+# home and visitor separation to be rejoined with concat
+home = df.copy()
+home = home.rename(columns={'home': 'team', 'goals_home': 'goals_for', 'goals_visitor': 'goals_against'})
+home = home.drop(['visitor'], axis=1)
+visitor = df.copy()
+visitor = visitor.rename(columns={'visitor': 'team', 'goals_home': 'goals_against', 'goals_visitor': 'goals_for'})
+visitor = visitor.drop(['home'], axis=1)
+# rejoin the data
+df = pd.concat([home, visitor], sort=False)
+df = df.reset_index(drop=True)
+df = df.sort_values(['date', 'team'])
+# moving average
+df[['goals_for_ma', 'goals_against_ma']] = (
+    df
+    .groupby('team')
+    [['goals_for', 'goals_against']]
+    .rolling(window=5)
+    .mean()
+    .shift(1) # REALLY IMPORTANT!!
+    .reset_index(0, drop=True)
+)
 
-average_goals = calculate_average_goals_before_game(df)
+
+
 
 df = pd.merge(df, average_goals, how='left', left_on=['date', 'home'], right_on=['date', 'team'])
 df = pd.merge(df, average_goals, how='left', left_on=['date', 'visitor'], right_on=['date', 'team'], suffixes=['_home', '_visitor'])
