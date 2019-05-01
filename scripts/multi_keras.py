@@ -12,10 +12,9 @@ import altair as alt
 
 skaters = pd.read_csv('data/skaters.csv')
 
-skaters = skaters[[
+df = skaters[[
     'name',
     'position',
-    'selected_in_draft',
     'season',
     'age',
     'games_played',
@@ -23,31 +22,18 @@ skaters = skaters[[
     'goals',
     'shots_on_goal',
     'shots_attempted_total',
-]]
-skaters
-# quickly look at age relationship
-(
-    alt.Chart(skaters)
-    .mark_circle(opacity=0.2)
-    .encode(x='age', y='goals')
-    .properties(background='white', width=800, height=400)
-)
+]].copy()
+
 # create things to predict
-df = skaters.copy()
 df['goals_next_year'] = df.groupby('name')['goals'].shift(-1)
 df['shots_on_goal_next_year'] = df.groupby('name')['shots_on_goal'].shift(-1)
 # okay to drop blanks in here
 df = df.dropna(subset=['goals_next_year', 'shots_on_goal_next_year'])
 # quickly look at year and year+1
-(
-    alt.Chart(df)
-    .mark_circle(opacity=0.2)
-    .encode(x='goals', y='goals_next_year')
-    .properties(background='white', width=800, height=400)
-)
+plt.scatter(df.goals, df.goals_next_year, alpha=0.2)
 # quick naive modeling attempts
-naive = df['goals']
 truth = df['goals_next_year']
+naive = df['goals']
 r2_score(truth, naive)
 mean_absolute_error(truth, naive)
 # train test split on names so there's no target leakage
@@ -102,6 +88,10 @@ model.add(layers.Dense(1))
 model.compile(optimizer='Nadam', loss='mse', metrics=['mae'])
 model.fit(Z_train, y_train_goals, epochs=100, batch_size=10)
 
+import pydot
+from tensorflow.keras.utils import plot_model
+plot_model(model)
+
 y_hat_test_goals = model.predict(Z_test)
 r2_score(y_test_goals, y_hat_test_goals)
 mean_absolute_error(y_test_goals, y_hat_test_goals)
@@ -127,8 +117,8 @@ model.predict(Z_new)[0][0]
 
 # multi-output model
 data_input = Input(shape=(Z_train.shape[1],), dtype='float64', name='last_season')
-x = layers.Dense(30, activation='selu')(data_input)
-x = layers.Dense(10, activation='selu')(x)
+x = layers.Dense(100, activation='selu')(data_input)
+x = layers.Dense(100, activation='selu')(x)
 x = layers.Dropout(0.25)(x)
 x = layers.Dense(5, activation='selu')(x)
 goals_prediction = layers.Dense(1, name='goals')(x)
@@ -139,9 +129,11 @@ model.compile(
     loss={'goals': 'mse', 'shots_on_goal': 'mse'},
     loss_weights={'goals': 10, 'shots_on_goal': 1 / 10},
 )
-model.fit(Z_train, [y_train_goals, y_train_sog], epochs=100, batch_size=10)
+model.fit(Z_train, [y_train_goals, y_train_sog], epochs=20, batch_size=5)
 
 model.predict(Z_test)[1]
+
+plot_model(model)
 
 X_new = pd.DataFrame({
     'age': [28],
